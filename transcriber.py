@@ -1,5 +1,6 @@
 import os
 import whisper
+import torch  # Импортируем torch
 from moviepy.editor import VideoFileClip
 from pydub import AudioSegment
 
@@ -24,13 +25,25 @@ def convert_audio_format(input_path, output_path, target_sample_rate=16000):
     audio = audio.set_frame_rate(target_sample_rate).set_channels(1)
     audio.export(output_path, format="wav")
 
-def transcribe_audio_whisper(audio_path, model_name="base"):
+def transcribe_audio_whisper(audio_path, model_name="large"):
     """
     Загружает модель Whisper и выполняет транскрипцию аудиофайла.
-    Параметр model_name можно задавать как "tiny", "base", "small", "medium", "large".
+    Используются параметры для повышения качества:
+      - language: 'ru' для русского языка
+      - beam_size: увеличение количества лучей (beam search) до 5
+      - best_of: выбор лучшего из 5 вариантов
+      - fp16: False, если отсутствует поддержка 16-битной точности (на CPU)
     """
-    model = whisper.load_model(model_name)
-    result = model.transcribe(audio_path)
+    model = whisper.load_model(model_name).to('cuda' if torch.cuda.is_available() else 'cpu')  # Используем torch
+
+    options = {
+        "language": "ru",
+        "beam_size": 5,
+        "best_of": 5,
+        "fp16": False  # Убираем fp16 на CPU, если не поддерживается
+    }
+
+    result = model.transcribe(audio_path, **options)
     return result["text"]
 
 def save_text_to_file(text, file_path):
@@ -38,7 +51,7 @@ def save_text_to_file(text, file_path):
     with open(file_path, "w", encoding="utf-8") as file:
         file.write(text)
 
-def transcribe_media(media_path, output_text_path, model_name="base"):
+def transcribe_media(media_path, output_text_path, model_name="large"):
     """
     Основная функция для транскрипции медиафайла с использованием OpenAI Whisper.
     Поддерживаются видео (.mp4, .avi, .mov) и аудио файлы (.wav, .mp3, .flac).
@@ -55,7 +68,7 @@ def transcribe_media(media_path, output_text_path, model_name="base"):
     else:
         raise ValueError("Неподдерживаемый формат файла: " + media_path)
     
-    # Конвертируем аудио 
+    # Конвертируем аудио в формат, оптимальный для Whisper
     processed_audio_path = get_temp_audio_path("processed_audio.wav")
     convert_audio_format(input_audio_path, processed_audio_path)
     
@@ -64,7 +77,7 @@ def transcribe_media(media_path, output_text_path, model_name="base"):
     
     save_text_to_file(transcription, output_text_path)
     
-    # Удаляем временные файлы, если они были уже ранее созданы
+    # Удаляем временные файлы, если они были созданы
     if media_path.lower().endswith((".mp4", ".avi", ".mov")) and os.path.exists(temp_audio_path):
         os.remove(temp_audio_path)
     if os.path.exists(processed_audio_path):
@@ -73,7 +86,7 @@ def transcribe_media(media_path, output_text_path, model_name="base"):
 if __name__ == "__main__":
     # Папка с медиафайлами
     media_folder = "data"
-    # Папка для сохранения транскрибаций
+    # Папка для сохранения транскрипций
     output_folder = "transcriptions"
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
@@ -86,7 +99,7 @@ if __name__ == "__main__":
             media_file = os.path.join(media_folder, filename)
             output_file = os.path.join(output_folder, f"{os.path.splitext(filename)[0]}.txt")
             try:
-                transcribe_media(media_file, output_file, model_name="base")
+                transcribe_media(media_file, output_file, model_name="large")
                 print(f"Транскрипция для {filename} сохранена в {output_file}")
             except Exception as e:
                 print(f"Ошибка при обработке файла {filename}: {e}")

@@ -1,3 +1,6 @@
+
+
+
 import os
 from transcriber import transcribe_media
 
@@ -16,8 +19,8 @@ def main():
         print("В папке data нет поддерживаемых медиафайлов!")
         return
     
-    # Задайте модель Whisper (например, "base" или "small", "medium", "large")
-    model_name = "base"
+    # Выбираем модель Whisper (для максимального качества используем "large")
+    model_name = "large"
     
     for i, media_file in enumerate(media_files, start=1):
         media_path = os.path.join(data_dir, media_file)
