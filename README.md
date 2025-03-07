@@ -13,6 +13,7 @@
 - noisereduce==3.0.2
 - scipy==1.14.1
 - numpy==2.0.2
+- openai-whisper==20231117
 
 ### Установка зависимостей
 
